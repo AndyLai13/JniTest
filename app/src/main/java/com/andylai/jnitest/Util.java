@@ -1,6 +1,7 @@
 package com.andylai.jnitest;
 
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.util.Log;
 import android.widget.Toast;
 
@@ -74,4 +75,10 @@ public class Util {
     public void showToast(String msg) {
         Log.d("Andy","msg = " + msg);
     }
+
+    public native Bitmap flipHorizontalBitmapFromJNI(Bitmap bitmap);
+    public native Bitmap flipVerticalBitmapFromJNI(Bitmap bitmap);
+//    public native String getBitmapString();
+
+
 }

@@ -1,6 +1,10 @@
 #include <jni.h>
 #include <string>
 #include <sstream>
+#include <android/bitmap.h>
+
+
+jobject createBitmap(JNIEnv *env, uint32_t width, uint32_t height);
 
 extern "C" JNIEXPORT jstring JNICALL
 Java_com_andylai_jnitest_Util_stringFromJNI(
@@ -21,7 +25,7 @@ Java_com_andylai_jnitest_Util_getIntFromNative(JNIEnv *env, jobject thiz, jint j
 extern "C"
 JNIEXPORT jdouble JNICALL
 Java_com_andylai_jnitest_Util_getDoubleFromNative(JNIEnv *env, jobject thiz,
-                                                          jdouble j_double) {
+                                                  jdouble j_double) {
     double result = 50.0;
     result += j_double;
     return result;
@@ -30,7 +34,7 @@ Java_com_andylai_jnitest_Util_getDoubleFromNative(JNIEnv *env, jobject thiz,
 extern "C"
 JNIEXPORT jstring JNICALL
 Java_com_andylai_jnitest_Util_getStringFromNative(JNIEnv *env, jobject thiz,
-                                                          jstring java_string) {
+                                                  jstring java_string) {
     const char *java_str_char = env->GetStringUTFChars(java_string, NULL);
     if (java_str_char == NULL) {
         return NULL;
@@ -52,7 +56,8 @@ Java_com_andylai_jnitest_Util_nativeCallAndroidToast(JNIEnv *env, jobject thiz) 
     jobject j_object = env->AllocObject(j_class);
 
     jmethodID j_method_id1 = env->GetMethodID(j_class, "showToast", "(Ljava/lang/String;)V");
-    jmethodID j_method_id2 = env->GetStaticMethodID(j_class, "getStringFromJavaWithStatic", "(Ljava/lang/String;)Ljava/lang/String;");
+    jmethodID j_method_id2 = env->GetStaticMethodID(j_class, "getStringFromJavaWithStatic",
+                                                    "(Ljava/lang/String;)Ljava/lang/String;");
 
     jstring j_string1 = (jstring) env->NewStringUTF("c++ string");
     jstring j_string2 = (jstring) env->CallStaticObjectMethod(j_class, j_method_id2, j_string1);
@@ -63,7 +68,7 @@ Java_com_andylai_jnitest_Util_nativeCallAndroidToast(JNIEnv *env, jobject thiz) 
 extern "C"
 JNIEXPORT jobject JNICALL
 Java_com_andylai_jnitest_Util_getArrayListFromNative(JNIEnv *env, jobject thiz,
-                                                             jobject java_list) {
+                                                     jobject java_list) {
     // TODO: implement getArrayListFromNative()
 }
 
@@ -96,4 +101,115 @@ Java_com_andylai_jnitest_Util_nativeCallJavaBaseMsg(JNIEnv *env, jobject thiz) {
     const char *result_char = result_str.c_str();//字符串转换为char
     env->ReleaseStringUTFChars(j_str2, result_string_char);//释放
     return env->NewStringUTF(result_char);
+}
+
+
+int flipHori(uint32_t newHeight, uint32_t newWidth, void *bitmapPixels, uint32_t *newBitmapPixels) {
+    int whereToGet = 0;
+    for (int y = 0; y < newHeight; ++y) {
+        for (int x = newWidth - 1; x >= 0; x--) {
+            uint32_t pixel = ((uint32_t *) bitmapPixels)[whereToGet++];
+            newBitmapPixels[newWidth * y + x] = pixel;
+        }
+    }
+    return 0;
+}
+
+int flipVert() {}
+
+extern "C"
+JNIEXPORT jobject JNICALL
+Java_com_andylai_jnitest_Util_flipHorizontalBitmapFromJNI(JNIEnv *env, jobject thiz,
+                                                          jobject bitmap) {
+    AndroidBitmapInfo bitmapInfo;
+    int ret = NULL;
+    if ((ret = AndroidBitmap_getInfo(env, bitmap, &bitmapInfo)) < 0) {
+        return NULL;
+    }
+    void *bitmapPixels;
+    if ((ret = AndroidBitmap_lockPixels(env, bitmap, &bitmapPixels)) < 0) {
+        return NULL;
+    }
+
+    uint32_t newWidth = bitmapInfo.width;
+    uint32_t newHeight = bitmapInfo.height;
+    uint32_t *newBitmapPixels = new uint32_t[newWidth * newHeight];
+    int whereToGet = 0;
+    for (int y = 0; y < newHeight; ++y) {
+        for (int x = newWidth - 1; x >= 0; x--) {
+            uint32_t pixel = ((uint32_t *) bitmapPixels)[whereToGet++];
+            newBitmapPixels[newWidth * y + x] = pixel;
+        }
+    }
+
+    jobject newBitmap = createBitmap(env, newWidth, newHeight);
+    void *resultBitmapPixels;
+    if ((ret = AndroidBitmap_lockPixels(env, newBitmap, &resultBitmapPixels)) < 0) {
+        return NULL;
+    }
+    int pixelsCount = newWidth * newHeight;
+    memcpy((uint32_t *) resultBitmapPixels, newBitmapPixels, sizeof(uint32_t) * pixelsCount);
+
+    AndroidBitmap_unlockPixels(env, bitmap);
+    AndroidBitmap_unlockPixels(env, newBitmap);
+
+    return newBitmap;
+}
+
+extern "C"
+JNIEXPORT jobject JNICALL
+Java_com_andylai_jnitest_Util_flipVerticalBitmapFromJNI(JNIEnv *env, jobject thiz, jobject bitmap) {
+    AndroidBitmapInfo bitmapInfo;
+    int ret = NULL;
+    if ((ret = AndroidBitmap_getInfo(env, bitmap, &bitmapInfo)) < 0) {
+        return NULL;
+    }
+    void *bitmapPixels;
+    if ((ret = AndroidBitmap_lockPixels(env, bitmap, &bitmapPixels)) < 0) {
+        return NULL;
+    }
+
+    uint32_t newWidth = bitmapInfo.width;
+    uint32_t newHeight = bitmapInfo.height;
+    uint32_t *newBitmapPixels = new uint32_t[newWidth * newHeight];
+    int whereToGet = 0;
+    for (int y = 0; y < newHeight; ++y) {
+        for (int x = 0; x < newWidth; x++) {
+            uint32_t pixel = ((uint32_t *) bitmapPixels)[whereToGet++];
+            newBitmapPixels[newWidth * (newHeight - 1 - y) + x] = pixel;
+        }
+    }
+
+    jobject newBitmap = createBitmap(env, newWidth, newHeight);
+    void *resultBitmapPixels;
+    if ((ret = AndroidBitmap_lockPixels(env, newBitmap, &resultBitmapPixels)) < 0) {
+        return NULL;
+    }
+    int pixelsCount = newWidth * newHeight;
+    memcpy((uint32_t *) resultBitmapPixels, newBitmapPixels, sizeof(uint32_t) * pixelsCount);
+
+    AndroidBitmap_unlockPixels(env, bitmap);
+    AndroidBitmap_unlockPixels(env, newBitmap);
+
+    return newBitmap;
+}
+
+jobject createBitmap(JNIEnv *env, uint32_t width, uint32_t height) {
+    jclass bitmapCls = env->FindClass("android/graphics/Bitmap");
+    jmethodID createBitmapFunc = env->GetStaticMethodID(bitmapCls,
+                                                        "createBitmap",
+                                                        "(IILandroid/graphics/Bitmap$Config;)Landroid/graphics/Bitmap;");
+    jstring configName = env->NewStringUTF("ARGB_8888");
+    jclass bitmapConfigClass = env->FindClass("android/graphics/Bitmap$Config");
+    jmethodID valueOfBitmapConfigFunction = env->GetStaticMethodID(
+            bitmapConfigClass, "valueOf",
+            "(Ljava/lang/String;)Landroid/graphics/Bitmap$Config;");
+
+    jobject bitmapConfig = env->CallStaticObjectMethod(bitmapConfigClass,
+                                                       valueOfBitmapConfigFunction,
+                                                       configName);
+
+    jobject newBitmap = env->CallStaticObjectMethod(bitmapCls, createBitmapFunc,
+                                                    width, height, bitmapConfig);
+    return newBitmap;
 }
